@@ -26,8 +26,8 @@ namespace DotNetDevOps.LetsEncrypt
 
         //    await starter.SignalEntityAsync(new EntityId("AcmeContext", request.SignerEmail.ToMD5Hash()), nameof(AcmeContextActor.Initialize), new AcmeContextInitializeInput { SignerEmail = request.SignerEmail, LetsEncryptEndpoint = request.LetsEncryptEndpoint });
         //    await starter.SignalEntityAsync(new EntityId("AcmeContext", request.SignerEmail.ToMD5Hash()), nameof(AcmeContextActor.CreateOrder), new OrderInput { Domains = request.Domains, MonitorInstanceId = ctx.InstanceId });
-            
-            
+
+
         //}
 
         [FunctionName(nameof(AddCertificateOrchestrator))]
@@ -37,61 +37,48 @@ namespace DotNetDevOps.LetsEncrypt
         [ActorService(Name = "AcmeContext")] IActorProxy actorProxy,
         ILogger log)
         {
-            var request = ctx.GetInput<AddCertificateRequest>();
-            ctx.SetCustomStatus(new { status = "Pending"});
+            var input = ctx.GetInput<AddCertificateRequest>();
+            ctx.SetCustomStatus(new { status = "Pending" });
 
             // var site = await ctx.CallActivityAsync<SiteInner>(nameof(AzureResourceManagerFunctions.GetSite), (request.SubscriptionId, request.ResourceGroupName, request.SiteName, request.SlotName));
-           
-            var websiteId = new EntityId("AzureWebsite",string.Join("",request.ResourceGroupName, request.SiteName, request.SlotName, request.SubscriptionId).ToMD5Hash());
-            var arcmeId = new EntityId("AcmeContext", request.SignerEmail.ToMD5Hash());
 
-            var site = await ctx.CallEntityAsync<SiteInner>(websiteId,nameof(AzureWebsiteActor.Load),
-                new LoadWebsiteInput { ResourceGroupname = request.ResourceGroupName, SiteName = request.SiteName, SlotName = request.SlotName, SubscriptionId = request.SubscriptionId, Domains=request.Domains });
-            if (site == null)
-            {
-                return;
-            }
+            var websiteId = new EntityId("AzureWebsite", string.Join("", input.ResourceGroupName, input.SiteName, input.SlotName, input.SubscriptionId).ToMD5Hash());
+            var arcmeId = new EntityId("AcmeContext", input.SignerEmail.ToMD5Hash());
+
+            var site = await ctx.CallEntityAsync<SiteInner>(websiteId, nameof(AzureWebsiteActor.Load),
+                new LoadWebsiteInput
+                {
+                    ResourceGroupname = input.ResourceGroupName,
+                    SiteName = input.SiteName,
+                    SlotName = input.SlotName,
+                    SubscriptionId = input.SubscriptionId,
+                    Domains = input.Domains
+                });
+
             ctx.SetCustomStatus(new { status = "SiteLoaded" });
 
-            // var account = new EntityId("AcmeContext", request.SignerEmail.ToMD5Hash());
-
-            //  await ctx.CallActivityAsync(nameof(GetOrderStatus), request);
-
-            //   await starter.SignalEntityAsync(new EntityId("AcmeContext", request.SignerEmail.ToMD5Hash()), nameof(AcmeContextActor.Initialize), new AcmeContextInitializeInput { SignerEmail = request.SignerEmail, LetsEncryptEndpoint = request.LetsEncryptEndpoint });
-            //   await starter.SignalEntityAsync(new EntityId("AcmeContext", request.SignerEmail.ToMD5Hash()), nameof(AcmeContextActor.CreateOrder), new OrderInput { Domains = request.Domains, MonitorInstanceId = ctx.InstanceId });
-
-            await ctx.CallEntityAsync(arcmeId, nameof(AcmeContextActor.Initialize), new AcmeContextInitializeInput { SignerEmail = request.SignerEmail, LetsEncryptEndpoint = request.LetsEncryptEndpoint });
+            await ctx.CallEntityAsync(arcmeId, nameof(AcmeContextActor.Initialize),
+                new AcmeContextInitializeInput { SignerEmail = input.SignerEmail, LetsEncryptEndpoint = input.LetsEncryptEndpoint });
 
             ctx.SetCustomStatus(new { status = "AcmeInitialized" });
 
-            await ctx.CallEntityAsync(arcmeId, nameof(AcmeContextActor.CreateOrder), new OrderInput { Domains = request.Domains, MonitorInstanceId = ctx.InstanceId });
+            await ctx.CallEntityAsync(arcmeId, nameof(AcmeContextActor.CreateOrder),
+                new OrderInput { Domains = input.Domains, MonitorInstanceId = ctx.InstanceId });
 
             await ctx.WaitForExternalEvent("Completed");
 
             ctx.SetCustomStatus(new { status = "OrderCreated" });
 
             var pfx = await ctx.CallEntityAsync<FinalizeOutput>(arcmeId, nameof(AcmeContextActor.FinalizeOrder),
-                new FinalizeInput {   CsrInfo = request.CsrInfo, LetsEncryptEndpoint = request.LetsEncryptEndpoint, Domains = request.Domains  });
-
-
+                new FinalizeInput { CsrInfo = input.CsrInfo, LetsEncryptEndpoint = input.LetsEncryptEndpoint, Domains = input.Domains });
 
             ctx.SetCustomStatus(new { status = "OrderFinalized" });
 
 
-            await ctx.CallEntityAsync<SiteInner>(websiteId, nameof(AzureWebsiteActor.UpdateCertificate), new UpdateCertificateInput {  Pfx= pfx, Domains=request.Domains, UseIpBasedSsl=request.UseIpBasedSsl });
+            await ctx.CallEntityAsync<SiteInner>(websiteId, nameof(AzureWebsiteActor.UpdateCertificate), new UpdateCertificateInput { Pfx = pfx, Domains = input.Domains, UseIpBasedSsl = input.UseIpBasedSsl });
 
             ctx.SetCustomStatus(new { status = "CertificateUpdated" });
-
-            // await actorProxy.CallAsync(ctx,request.SignerEmail.ToMD5Hash(), (AcmeContextActor t) => t.Initialize, new AcmeContextInitializeInput { SignerEmail = request.SignerEmail, LetsEncryptEndpoint = request.LetsEncryptEndpoint });
-            // await actorProxy.CallAsync(ctx, request.SignerEmail.ToMD5Hash(), (AcmeContextActor t) => t.Order, new OrderInput { Domains = request.Domains , MonitorInstanceId = ctx.InstanceId });
-
-            //await context.CallEntityAsync(account, "initialize", new AcmeContextInitializeInput { SignerEmail = request.SignerEmail, LetsEncryptEndpoint = request.LetsEncryptEndpoint });
-
-            //await context.CallEntityAsync(account, "order", new OrderInput { Domains = request.Domains });
-
-           
-
-            //ctx.ContinueAsNew(request);
+ 
         }
 
         [FunctionName("CreateCertificateRequest")]

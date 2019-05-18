@@ -9,6 +9,7 @@ using Microsoft.Rest;
 using Microsoft.Azure.Management.ResourceManager.Fluent;
 using Microsoft.Azure.Management.ResourceManager.Fluent.Core;
 using Microsoft.Azure.Services.AppAuthentication;
+using System.Collections.Generic;
 
 namespace DotNetDevOps.LetsEncrypt
 {
@@ -67,9 +68,9 @@ namespace DotNetDevOps.LetsEncrypt
             {
                 foreach (var hostName in input.Domains.Except(hostNameSslStates.Select(x => x.Name)))
                 {
-                    log.LogError($"{hostName} is not found");
+                    throw new KeyNotFoundException($"{hostName} is not found");
                 }
-                return null;
+              
             }
 
             return State.Site;
