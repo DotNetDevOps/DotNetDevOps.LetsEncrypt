@@ -1,0 +1,21 @@
+{
+  "version": "2.0",
+  "logging": {
+    "fileLoggingMode": "always",
+    "logLevel": {
+      "default": "Information",
+      "Host.Results": "Error",
+      "Function": "Trace",
+      "AcmeContext": "Trace",
+      "Host.Aggregator": "Trace"
+    }
+  },
+  "extensions": {
+    "durableTask": {
+      "hubName": "DotNetDevOpsLetsEncrypt"
+    },
+    "http": {
+      "routePrefix": ""
+    }
+  }
+}
