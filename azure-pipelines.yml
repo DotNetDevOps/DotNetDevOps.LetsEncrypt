@@ -1,0 +1,84 @@
+# ASP.NET Core
+# Build and test ASP.NET Core projects targeting .NET Core.
+# Add steps that run tests, create a NuGet package, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/dotnet-core
+
+name: '$(date:yyyyMMdd)$(rev:.rr)'
+trigger:
+  batch: true
+  branches:
+    include:
+    - master
+    - dev
+
+pr:
+- master
+- dev
+- releases/*
+
+stages:
+- stage: Build
+  jobs:
+  - job: Build
+    pool:
+      vmImage: 'windows-2019'
+
+    variables:
+      buildConfiguration: 'Release'
+
+    steps:
+    # .NET Core
+    # Restore NuGet packages.
+    - task: DotNetCoreCLI@2
+      inputs:
+        command: 'restore'
+        projects: '**/*.csproj'
+        feedsToUse: config
+        nugetConfigPath: nuget.config # you should always have a NuGet.config file!
+        #verbosityRestore: 'detailed' # Options: quiet, minimal, normal, detailed, diagnostic
+    
+     - task: DotNetCoreCLI@2
+      displayName: Build
+      inputs:
+        command: build
+        projects: '**/*.csproj'
+        configuration: '$(buildConfiguration)'
+    - task: DotNetCoreCLI@2
+      displayName: Publish
+      inputs:
+        command: publish
+        publishWebProjects: false
+        projects: 'functions/**/*.csproj'
+        configuration: '$(buildConfiguration)'
+        arguments: '--output $(Build.ArtifactStagingDirectory)'
+    - task: VSTSBuildInfoTask@1
+      displayName: 'Creating Build Artifact'
+      inputs:
+        OutPutFileName: '$(build.artifactstagingdirectory)\buildinfo.json'
+        FeatureRegexPattern: '[^/]+(?=/$|$)'
+        FeatureVariableName: featureName   
+    - task: PublishPipelineArtifact@0
+      inputs:
+        artifactName: 'drop'
+        targetPath: '$(Build.ArtifactStagingDirectory)'
+- stage: Publish
+  jobs:
+  - deployment: DeployDotNetDevOps
+    pool:
+      vmImage: 'windows-2019'
+    variables:
+      buildConfiguration: 'Release'
+    environment: 'DotNETDevOps'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - task: AzureRmWebAppDeployment@4
+              inputs:
+                azureSubscription: 'Microsoft Partner Network (0fd7128b-5305-49da-a400-b7a37feb271c)'
+                appType: 'functionApp'
+                WebAppName: 'dotnetdevops-letsencrypt'
+                package: '$(Pipeline.Workspace)/**/DotNetDevOps.LetsEncrypt.zip'
+                enableCustomDeployment: true
+                DeploymentType: 'runFromZip'
+ 

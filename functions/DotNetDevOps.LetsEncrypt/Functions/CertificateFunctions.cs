@@ -83,7 +83,7 @@ namespace DotNetDevOps.LetsEncrypt
 
         [FunctionName("CreateCertificateRequest")]
         public static async Task<HttpResponseMessage> Run(
-         [HttpTrigger(AuthorizationLevel.Function, "post", Route = "providers/DotNetDevOps.Letsencrypt/certificates")] HttpRequestMessage req,
+         [HttpTrigger(AuthorizationLevel.Function, "post", Route = "providers/DotNetDevOps.LetsEncrypt/certificates")] HttpRequestMessage req,
          [OrchestrationClient] IDurableOrchestrationClient starter,
          ILogger log)
         {
@@ -98,7 +98,7 @@ namespace DotNetDevOps.LetsEncrypt
 
         [FunctionName("Updated")]
         public static async Task userUpdated(
-       [HttpTrigger(AuthorizationLevel.Function, "get", Route = "providers/DotNetDevOps.Letsencrypt/certificates/{instanceId}")] HttpRequestMessage req,
+       [HttpTrigger(AuthorizationLevel.Function, "get", Route = "providers/DotNetDevOps.LetsEncrypt/certificates/{instanceId}")] HttpRequestMessage req,
        [OrchestrationClient] IDurableOrchestrationClient starter, string instanceId,
        ILogger log)
         {
