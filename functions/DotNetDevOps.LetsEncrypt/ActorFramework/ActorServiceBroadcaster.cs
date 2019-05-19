@@ -66,7 +66,7 @@ namespace DotNetDevOps.LetsEncrypt
             if (k.ParameterType == typeof(ILogger))
             {
                 var loggerFactory = scope.ServiceProvider.GetRequiredService<ILoggerFactory>();
-                var logger = loggerFactory.CreateLogger($"{Name}.{ctx.OperationName}");
+                var logger = loggerFactory.CreateLogger($"Entity.{Name}.{ctx.OperationName}");
                 logger.BeginScope(new Dictionary<string, string> {
                     ["OperationName"] = ctx.OperationName
                 });

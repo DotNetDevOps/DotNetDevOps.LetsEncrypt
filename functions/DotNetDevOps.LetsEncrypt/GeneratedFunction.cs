@@ -21,7 +21,8 @@ namespace DotNetDevOps.LetsEncrypt
         public static Dictionary<string, Type> TypeMappings = new Dictionary<string, Type>()
         {
             ["AcmeContext"] = typeof(AcmeContextActor),
-            ["AzureWebsite"] = typeof(AzureWebsiteActor)
+            ["AzureWebsite"] = typeof(AzureWebsiteActor),
+            ["Authorization"] = typeof(AuthorizationActor)
         };
 
         public void Configure(IWebJobsBuilder builder)
@@ -47,17 +48,41 @@ namespace DotNetDevOps.LetsEncrypt
                 case "CreateOrder":
                     await actorservice.ExecuteAsync<OrderInput,object, AcmeContextState>(ctx);
                     break;
-                case "UpdateDNS":
-                    await actorservice.ExecuteAsync<UpdateDNSInput, object, AcmeContextState>(ctx);
-                    break;
                 case "FinalizeOrder":
                     await actorservice.ExecuteAsync<FinalizeInput, FinalizeOutput, AcmeContextState>(ctx);
+                    break;
+                case "ValidateAuthorization":
+                    await actorservice.ExecuteAsync<ValidateAuthorizationInput, object, AcmeContextState>(ctx);
                     break;
                 default:
                     throw new InvalidOperationException(ctx.OperationName + " is not known");
 
             }
            
+        }
+
+        [FunctionName("Authorization")]
+        public static async Task AuthorizationEntity(
+         [EntityTrigger] IDurableEntityContext ctx,
+         [ActorService(Name = "Authorization")] IActorService actorservice,
+         [OrchestrationClient] IDurableOrchestrationClient starter)
+        {
+            switch (ctx.OperationName)
+            {
+                case "AuthorizeHttp":
+                    await actorservice.ExecuteAsync<AuthorizeHttpInput, object, AuthorizationActorState>(ctx);
+                    break;
+                case "AuthorizeDns":
+                    await actorservice.ExecuteAsync<AuthorizeDnsInput, object, AuthorizationActorState>(ctx);
+                    break;
+                case "AuthorizationCompleted":
+                    await actorservice.ExecuteAsync<object, object, AuthorizationActorState>(ctx);
+                    break;
+                default:
+                    throw new InvalidOperationException(ctx.OperationName + " is not known");
+
+            }
+
         }
 
         [FunctionName("AzureWebsite")]

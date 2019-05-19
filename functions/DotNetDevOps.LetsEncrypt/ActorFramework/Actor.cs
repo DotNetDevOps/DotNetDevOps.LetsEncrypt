@@ -11,6 +11,10 @@ namespace DotNetDevOps.LetsEncrypt
         public IDurableEntityContext Context { get; internal set; }
         public T State { get; internal set; }
 
+        public void SaveState()
+        {
+            Context.SetState(this.State);
 
+        }
     }
 }

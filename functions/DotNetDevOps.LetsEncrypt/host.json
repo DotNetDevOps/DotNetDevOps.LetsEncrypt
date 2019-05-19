@@ -6,7 +6,8 @@
       "default": "Information",
       "Host.Results": "Error",
       "Function": "Trace",
-      "AcmeContext": "Trace",
+      "Entity.AcmeContext": "Trace",
+      "Entity.Authorization": "Trace",
       "Host.Aggregator": "Trace"
     }
   },

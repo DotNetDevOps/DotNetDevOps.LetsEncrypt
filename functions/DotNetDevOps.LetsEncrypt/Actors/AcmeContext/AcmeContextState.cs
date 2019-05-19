@@ -11,6 +11,7 @@ namespace DotNetDevOps.LetsEncrypt
         public string SignerEmail { get; set; }
         public string Pem { get;  set; }
         public Dictionary<string, string> Orders { get; set; } = new Dictionary<string, string>();
+        
         public Uri LetsEncryptEndpoint { get; set; }
     }
 }

@@ -8,27 +8,13 @@ using System.Net.Http;
 using System.Linq;
 using Microsoft.Azure.WebJobs.Hosting;
 using Newtonsoft.Json;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 
 namespace DotNetDevOps.LetsEncrypt
 {
     public static class CertificateFunctions
-    {
-
-
-        //[FunctionName(nameof(GetOrderStatus))]
-        //public static async Task GetOrderStatus(
-        //    [ActivityTrigger] IDurableActivityContext ctx,
-        //            [OrchestrationClient] IDurableOrchestrationClient starter,
-        //    [ActorService(Name = "AcmeContext")] IActorProxy actorProxy, ILogger log)
-        //{
-
-        //    var request = ctx.GetInput<AddCertificateRequest>();
-
-        //    await starter.SignalEntityAsync(new EntityId("AcmeContext", request.SignerEmail.ToMD5Hash()), nameof(AcmeContextActor.Initialize), new AcmeContextInitializeInput { SignerEmail = request.SignerEmail, LetsEncryptEndpoint = request.LetsEncryptEndpoint });
-        //    await starter.SignalEntityAsync(new EntityId("AcmeContext", request.SignerEmail.ToMD5Hash()), nameof(AcmeContextActor.CreateOrder), new OrderInput { Domains = request.Domains, MonitorInstanceId = ctx.InstanceId });
-
-
-        //}
+    { 
 
         [FunctionName(nameof(AddCertificateOrchestrator))]
         public static async Task AddCertificateOrchestrator(
@@ -38,10 +24,9 @@ namespace DotNetDevOps.LetsEncrypt
         ILogger log)
         {
             var input = ctx.GetInput<AddCertificateRequest>();
+
             ctx.SetCustomStatus(new { status = "Pending" });
-
-            // var site = await ctx.CallActivityAsync<SiteInner>(nameof(AzureResourceManagerFunctions.GetSite), (request.SubscriptionId, request.ResourceGroupName, request.SiteName, request.SlotName));
-
+             
             var websiteId = new EntityId("AzureWebsite", string.Join("", input.ResourceGroupName, input.SiteName, input.SlotName, input.SubscriptionId).ToMD5Hash());
             var arcmeId = new EntityId("AcmeContext", input.SignerEmail.ToMD5Hash());
 
@@ -70,7 +55,7 @@ namespace DotNetDevOps.LetsEncrypt
             ctx.SetCustomStatus(new { status = "OrderCreated" });
 
             var pfx = await ctx.CallEntityAsync<FinalizeOutput>(arcmeId, nameof(AcmeContextActor.FinalizeOrder),
-                new FinalizeInput { CsrInfo = input.CsrInfo, LetsEncryptEndpoint = input.LetsEncryptEndpoint, Domains = input.Domains });
+                new FinalizeInput { CsrInfo = input.CsrInfo, Domains = input.Domains });
 
             ctx.SetCustomStatus(new { status = "OrderFinalized" });
 
@@ -96,13 +81,29 @@ namespace DotNetDevOps.LetsEncrypt
             return await starter.WaitForCompletionOrCreateCheckStatusResponseAsync(req, instanceId, TimeSpan.FromSeconds(3));
         }
 
-        [FunctionName("Updated")]
+        [FunctionName("ChallengeCompleted")]
         public static async Task userUpdated(
-       [HttpTrigger(AuthorizationLevel.Function, "get", Route = "providers/DotNetDevOps.LetsEncrypt/certificates/{instanceId}")] HttpRequestMessage req,
-       [OrchestrationClient] IDurableOrchestrationClient starter, string instanceId,
+       [HttpTrigger(AuthorizationLevel.Function, "get", Route = "providers/DotNetDevOps.LetsEncrypt/challenges/{token}")] HttpRequestMessage req,
+       [OrchestrationClient] IDurableOrchestrationClient starter, string token,
        ILogger log)
         {
-            await starter.RaiseEventAsync(instanceId, "UserDnsUpdate");
+            await starter.SignalEntityAsync(new EntityId("Authorization", token), nameof(AuthorizationActor.AuthorizationCompleted));
+          
+        }
+
+        [FunctionName("AcmeChallenge")]
+        public static async Task<IActionResult> AcmeChallenge(
+        [HttpTrigger(AuthorizationLevel.Function, "get", Route = ".well-known/acme-challenge/{token}")] HttpRequest req,
+        [OrchestrationClient] IDurableOrchestrationClient starter, string token,
+        ILogger log)
+        {
+
+            log.LogInformation("Acme-Challenge request for {Host}", req.Host.Host);
+
+            var state = await starter.ReadEntityStateAsync<AuthorizationActorState>(new EntityId("Authorization", token));
+
+            return new ContentResult() { Content = state.EntityState.KeyAuthz, ContentType = "plain/text", StatusCode = 200 };
+            //   await ctx.Response.WriteAsync(keyAuthString);
         }
 
     }

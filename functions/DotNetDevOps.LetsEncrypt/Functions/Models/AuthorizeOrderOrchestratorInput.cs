@@ -10,8 +10,7 @@ namespace DotNetDevOps.LetsEncrypt
     {
         public string OrderLocation { get; set; }
         public EntityId EntityId { get; set; }
-        public string OrderId { get; set; }
-        public Uri LetsEncryptEndpoint { get;  set; }
         public string RequestMonitorInstanceId { get;  set; }
+        public bool UseDns01Authorization { get; set; }
     }
 }

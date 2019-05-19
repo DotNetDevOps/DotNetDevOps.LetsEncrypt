@@ -7,11 +7,95 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography.X509Certificates;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace DotNetDevOps.LetsEncrypt
 {
+    public class AuthorizeHttpInput
+    {
+        public string KeyAuthz { get;  set; }
+        public string Token { get;  set; }
+        public string OrchestratorId { get;  set; }
+        public Uri Location { get;  set; }
+        public EntityId EntityId { get;  set; }
+    }
+    public class AuthorizeDnsInput
+    {
+        public string Name { get; set; }
+        public string DnsTxt { get; set; }
+        public string OrchestratorId { get;  set; }
+        public Uri AuthorizationLocation { get;  set; }
+       // public string Token { get;  set; }
+        public EntityId EntityId { get; set; }
+    }
 
+    public class AuthorizationActorState{
+       // public Dictionary<string, string> Authorizations { get; set; } = new Dictionary<string, string>();
+       public string KeyAuthz { get; set; }
+        public string OrchestratorId { get; set; }
+        public EntityId EntityId { get;  set; }
+        public Uri AuthorizationLocation { get; set; }
+    }
+
+    [ActorService(Name = "Authorization")]
+    public class AuthorizationActor : Actor<AuthorizationActorState>
+    {
+        private readonly IDurableOrchestrationClient starter;
+
+        public AuthorizationActor(IDurableOrchestrationClient starter)
+        {
+            this.starter = starter;
+        }
+
+
+        [Operation(nameof(AuthorizeHttp), Input = typeof(AuthorizeHttpInput))]
+        public async Task AuthorizeHttp(AuthorizeHttpInput input, ILogger log)
+        {
+            this.State.KeyAuthz = input.KeyAuthz;
+
+            this.SaveState();
+
+            await starter.SignalEntityAsync(input.EntityId, nameof(AcmeContextActor.ValidateAuthorization), new ValidateAuthorizationInput { AuthorizationLocation = input.Location, UseDns = false, OrchestratorId = input.OrchestratorId });
+
+        }
+
+        [Operation(nameof(AuthorizeDns), Input = typeof(AuthorizeDnsInput))]
+        public void AuthorizeDns(AuthorizeDnsInput input, ILogger log)
+        {
+            this.State.OrchestratorId = input.OrchestratorId;
+            this.State.EntityId = input.EntityId;
+            this.State.AuthorizationLocation = input.AuthorizationLocation;
+
+            log.LogWarning("Please update Domain:\n\n domain={domain}\n dnsTxt={dnsTxt}\n callback={callback}", input.Name, input.DnsTxt, $"http://localhost:7071/providers/DotNetDevOps.Letsencrypt/challenges/{Id.EntityKey}");
+            //location={location}\n updateUrl=
+            this.SaveState();
+            //TODO call external service/callback 
+
+            var givethisToExternalService = new
+            {
+                name=input.Name,
+                value=input.DnsTxt,
+                recordType = "TXT",
+                callback = $"https://management.dotnetdevops.org/providers/DotNetDevOps.Letsencrypt/challenges/{Id.EntityKey}"
+            };
+            
+        }
+
+        [Operation(nameof(AuthorizationCompleted))]
+        public async Task AuthorizationCompleted()
+        {
+            await starter.SignalEntityAsync(State.EntityId, nameof(AcmeContextActor.ValidateAuthorization), new ValidateAuthorizationInput { AuthorizationLocation = State.AuthorizationLocation, UseDns = true, OrchestratorId = State.OrchestratorId });
+
+
+        }
+    }
+    public class ValidateAuthorizationInput
+    {
+        public bool UseDns { get; set; }
+        public Uri AuthorizationLocation { get; set; }
+        public string OrchestratorId { get;  set; }
+    }
     /// <summary>
     /// Actors for functions
     /// Operations support return values of void, Task, Task<T>
@@ -29,11 +113,35 @@ namespace DotNetDevOps.LetsEncrypt
             this.starter = starter;           
         }
 
-        [Operation(nameof(UpdateDNS), Input = typeof(UpdateDNSInput))]
-        public void UpdateDNS(UpdateDNSInput updateDNSInput, ILogger log)
-        {  
-            log.LogWarning("Please update Domain:\n\n domain={domain}\n dnsTxt={dnsTxt}\n location={location}\n updateUrl=http://localhost:7071/providers/DotNetDevOps.Letsencrypt/certificates/{instanceId}",updateDNSInput.Name, updateDNSInput.DnsTxt, updateDNSInput.Location, updateDNSInput.MonitorInstanceId);
+        //[Operation(nameof(UpdateDNS), Input = typeof(UpdateDNSInput))]
+        //public void UpdateDNS(UpdateDNSInput updateDNSInput, ILogger log)
+        //{  
+        //    log.LogWarning("Please update Domain:\n\n domain={domain}\n dnsTxt={dnsTxt}\n location={location}\n updateUrl=http://localhost:7071/providers/DotNetDevOps.Letsencrypt/certificates/{instanceId}",updateDNSInput.Name, updateDNSInput.DnsTxt, updateDNSInput.Location, updateDNSInput.MonitorInstanceId);
             
+        //}
+
+        [Operation(nameof(ValidateAuthorization))]
+        public async Task ValidateAuthorization(ValidateAuthorizationInput input)
+        {
+
+            var context = new AcmeContext(State.LetsEncryptEndpoint, KeyFactory.FromPem(State.Pem));
+         
+            var auth = context.Authorization(input.AuthorizationLocation);
+            
+            var authctx = input.UseDns ? await auth.Dns() : await auth.Http();
+            await authctx.Validate();
+
+            var status = await auth.Resource();
+
+            var tcs = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+            while (!tcs.IsCancellationRequested && status.Status == AuthorizationStatus.Pending)
+            {
+                await Task.Delay(5000);
+                status = await auth.Resource();
+            }
+
+            await starter.RaiseEventAsync(input.OrchestratorId, "AuthorizationCompleted",authctx.Token);
+
         }
 
         [Operation(nameof(Initialize))]
@@ -63,7 +171,7 @@ namespace DotNetDevOps.LetsEncrypt
         [Operation(nameof(FinalizeOrder))]
         public async Task<FinalizeOutput> FinalizeOrder(FinalizeInput input, ILogger logger)
         {
-            var context = new AcmeContext(input.LetsEncryptEndpoint, KeyFactory.FromPem(State.Pem));
+            var context = new AcmeContext(State.LetsEncryptEndpoint, KeyFactory.FromPem(State.Pem));
             var orderId = string.Join("", input.Domains).ToMD5Hash();
             var orderCtx = context.Order(new Uri(State.Orders[orderId]));
             var order = await orderCtx.Resource();
@@ -95,6 +203,9 @@ namespace DotNetDevOps.LetsEncrypt
         public async Task CreateOrder(OrderInput input, ILogger logger)
         {
             logger.LogInformation("Creating a new order for {domains}", input.Domains);
+
+            input.UseDns01Authorization = input.UseDns01Authorization || input.Domains.Any(k => k.Contains("*"));
+
             using (logger.BeginScope(new Dictionary<string, string> { ["Domains"]= string.Join(",",input.Domains) }))
             {
 
@@ -137,6 +248,7 @@ namespace DotNetDevOps.LetsEncrypt
 
                     if (order.Status == Certes.Acme.Resource.OrderStatus.Invalid || order.Status == Certes.Acme.Resource.OrderStatus.Valid)
                     {
+                        logger.LogWarning("Order is finished or broken");
                         // Old order thats finished or broken.
                     }
                     else
@@ -152,14 +264,15 @@ namespace DotNetDevOps.LetsEncrypt
 
                             logger.LogInformation("Starting Authorization Process");
 
+
+
                             await starter.StartNewAsync(nameof(AcmeFunctions.AuthorizeOrderOrchestrator), orderId,
                                 new AuthorizeOrderOrchestratorInput
                                 {
                                     OrderLocation = orderCtx.Location.AbsoluteUri,
                                     EntityId = Id,
-                                    OrderId = orderId,
-                                    LetsEncryptEndpoint = State.LetsEncryptEndpoint,
-                                    RequestMonitorInstanceId = input.MonitorInstanceId
+                                    RequestMonitorInstanceId = input.MonitorInstanceId,
+                                    UseDns01Authorization = input.UseDns01Authorization,
                                 });
 
                             State.Orders[orderId] = orderCtx.Location.AbsoluteUri;

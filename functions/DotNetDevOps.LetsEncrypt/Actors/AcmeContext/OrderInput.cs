@@ -8,5 +8,6 @@ namespace DotNetDevOps.LetsEncrypt
     {
         public string[] Domains { get; set; }
         public string MonitorInstanceId { get; set; }
+        public bool UseDns01Authorization { get;  set; }
     }
 }
