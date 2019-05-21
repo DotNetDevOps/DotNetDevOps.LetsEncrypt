@@ -95,6 +95,7 @@ stages:
                 slotName: 'dev-ci'
                 package: '$(Pipeline.Workspace)/**/DotNetDevOps.LetsEncrypt.zip'
                 deploymentMethod: 'runFromPackage'
+                appSettings: '-dotnetdevops__sendgrid @Microsoft.KeyVault(SecretUri=https://dotnetdevops.vault.azure.net/secrets/dotnetdevops--sendgrid/56abbf9c472146f4b30abe4f37d4cdba)'
 
 - stage: PublishMaster
   dependsOn : 'Build'
@@ -117,3 +118,6 @@ stages:
                 appName: 'dotnetdevops-letsencrypt'
                 package: '$(Pipeline.Workspace)/**/DotNetDevOps.LetsEncrypt.zip'
                 deploymentMethod: 'runFromPackage'
+                appSettings: '-dotnetdevops__sendgrid @Microsoft.KeyVault(SecretUri=https://dotnetdevops.vault.azure.net/secrets/dotnetdevops--sendgrid/56abbf9c472146f4b30abe4f37d4cdba)'
+
+                

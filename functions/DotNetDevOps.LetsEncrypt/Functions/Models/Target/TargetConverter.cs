@@ -1,4 +1,5 @@
 ﻿using System;
+using DotNetDevOps.LetsEncrypt.Functions.Models.Email;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -19,11 +20,13 @@ namespace DotNetDevOps.LetsEncrypt
             switch (type)
             {
                 case "FileSystem":
-                    return new Target { Type = type, Properties = props.ToObject<FileSystemProperties>(), PropertiesHash=props.ToString().ToMD5Hash() };
+                    return new Target { Type = type, Properties = props.ToObject<FileSystemProperties>(), Hash= jobj.ToString().ToMD5Hash() };
                 case "AzureWebApp":
-                    return new Target { Type = type, Properties = props.ToObject<AzureWebAppProperties>(), PropertiesHash = props.ToString().ToMD5Hash() };
+                    return new Target { Type = type, Properties = props.ToObject<AzureWebAppProperties>(), Hash = jobj.ToString().ToMD5Hash() };
                 case "AzureBlob":
-                    return new Target { Type = type, Properties = props.ToObject<AzureBlobProperties>(), PropertiesHash = props.ToString().ToMD5Hash() };
+                    return new Target { Type = type, Properties = props.ToObject<AzureBlobProperties>(), Hash = jobj.ToString().ToMD5Hash() };
+                case "Email":
+                    return new Target { Type = type, Properties = props.ToObject<EmailTargetProperties>(), Hash = jobj.ToString().ToMD5Hash() };
 
             }
             return new Target { Type = type };

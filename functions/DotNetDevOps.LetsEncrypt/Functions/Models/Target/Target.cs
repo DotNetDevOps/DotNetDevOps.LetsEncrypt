@@ -5,6 +5,6 @@
         public string Type { get; set; }
       
         public TargetProperties Properties { get; set; }
-        internal string PropertiesHash { get; set; }
+        internal string Hash { get; set; }
     }
 }

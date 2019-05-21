@@ -12,14 +12,79 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.IO;
 using Microsoft.WindowsAzure.Storage.Blob;
+using DotNetDevOps.LetsEncrypt.Functions.Models.Email;
+using Microsoft.Extensions.Configuration;
+using System.Net.Mail;
+using System.Net.Mime;
+using Newtonsoft.Json.Linq;
+using DotNetDevOps.LetsEncrypt;
+using Microsoft.Extensions.DependencyInjection;
+
+[assembly: WebJobsStartup(typeof(StartUp))]
 
 namespace DotNetDevOps.LetsEncrypt
 {
-    public static class CertificateFunctions
-    {
 
+    public class StartUp : IWebJobsStartup
+    {
+        public void Configure(IWebJobsBuilder builder)
+        {
+            builder.Services.AddTransient<EmailService>();
+        }
+    }
+    public class EmailService
+    {
+        private readonly IConfiguration configuration;
+
+        public EmailService(IConfiguration configuration)
+        {
+            this.configuration = configuration;
+        }
+
+        public async Task SendEmailAsync(string from, string fromDisplay, string to, string html, params Attachment[] attachments)
+        {
+            MailMessage mailMsg = new MailMessage();
+            foreach (var mail in to.ToLower().Split(',').Select(s => s.Trim()))
+                mailMsg.To.Add(new MailAddress(mail));
+
+            mailMsg.From = new MailAddress(from, fromDisplay);
+            //  mailMsg.Bcc.Add(new MailAddress("pks@s-innovations.net"));
+
+            mailMsg.Subject = $"Sattelite Ingestor Status";
+
+            //  string html = message;
+            mailMsg.AlternateViews.Add(AlternateView.CreateAlternateViewFromString(html, null, MediaTypeNames.Text.Html));
+
+            mailMsg.Headers.Add("X-SMTPAPI", JToken.FromObject(new { filters = new { opentrack = new { settings = new { enable = 0 } }, clicktrack = new { settings = new { enable = 0 } } } }).ToString());
+
+            SmtpClient smtpClient = new SmtpClient("smtp.sendgrid.net", Convert.ToInt32(587));
+
+
+            var sendgrid = configuration.GetValue<string>("dotnetdevops:sendgrid");
+
+            var sendGridInfo = sendgrid.Split(':');
+            // make below work!
+            System.Net.NetworkCredential credentials = new System.Net.NetworkCredential(sendGridInfo.First(), string.Join(':', sendGridInfo.Skip(1)));
+            foreach (var att in attachments) {
+                mailMsg.Attachments.Add(att);
+                    
+                 }
+
+            smtpClient.Credentials = credentials;
+            await smtpClient.SendMailAsync(mailMsg);
+        }
+    }
+    
+    public class CertificateFunctions
+    {
+        private readonly EmailService emailService;
+
+        public CertificateFunctions(EmailService emailService)
+        {
+            this.emailService = emailService;
+        }
         [FunctionName(nameof(AddCertificateOrchestrator))]
-        public static async Task AddCertificateOrchestrator(
+        public async Task AddCertificateOrchestrator(
         [OrchestrationTrigger] IDurableOrchestrationContext ctx,
         [OrchestrationClient] IDurableOrchestrationClient starter,
         [ActorService(Name = "AcmeContext")] IActorProxy actorProxy,
@@ -38,7 +103,7 @@ namespace DotNetDevOps.LetsEncrypt
             {
                 if (input.Target.Properties is AzureWebAppProperties azurewebapp)
                 {
-                    var site = await ctx.CallEntityAsync<SiteInner>(new EntityId("AzureWebsite", input.Target.PropertiesHash), nameof(AzureWebsiteActor.Load),
+                    var site = await ctx.CallEntityAsync<SiteInner>(new EntityId("AzureWebsite", input.Target.Hash), nameof(AzureWebsiteActor.Load),
                         new LoadWebsiteInput
                         {
                             ResourceGroupname = azurewebapp.ResourceGroupName,
@@ -78,11 +143,21 @@ namespace DotNetDevOps.LetsEncrypt
                 await new CloudBlockBlob(new Uri(azureBlob.TargetBlob)).UploadFromByteArrayAsync(pfx.Pfx,0,pfx.Pfx.Length);
             }
 
+            if (input.Target.Properties is EmailTargetProperties email)
+            {
+                // Create  the file attachment for this e-mail message.
+                Attachment data = new Attachment(new MemoryStream(pfx.Pfx), input.Domains.First()+".pfx", "application/x-pkcs12");
+                // Add time stamp information for the file.
+                
+
+                await emailService.SendEmailAsync("noreply@dotnetdevops.org", "DotNetDevOps Notifications", email.Email,"Certeficate generated:", data);
+            }
+
 
             {
                 if (input.Target.Properties is AzureWebAppProperties azurewebapp)
                 {
-                    await ctx.CallEntityAsync<SiteInner>(new EntityId("AzureWebsite", input.Target.PropertiesHash),
+                    await ctx.CallEntityAsync<SiteInner>(new EntityId("AzureWebsite", input.Target.Hash),
                         nameof(AzureWebsiteActor.UpdateCertificate), new UpdateCertificateInput { Pfx = pfx, Domains = input.Domains, UseIpBasedSsl = azurewebapp.UseIpBasedSsl });
 
                 }
