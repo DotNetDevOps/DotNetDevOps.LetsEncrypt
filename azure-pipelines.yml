@@ -38,7 +38,7 @@ stages:
         #verbosityRestore: 'detailed' # Options: quiet, minimal, normal, detailed, diagnostic
     
     - task: JsonPathManipulationTask@1
-      condition: and(succeeded('Build'), eq(variables['Build.SourceBranch'], 'refs/heads/dev'))
+      condition: eq(variables['Build.SourceBranch'], 'refs/heads/dev')
       inputs:
         JsonFile: 'functions/DotNetDevOps.LetsEncrypt/host.json'
         JsonPathFilter: '$.extensions.durableTask.hubName'
@@ -70,29 +70,9 @@ stages:
       inputs:
         artifactName: 'drop'
         targetPath: '$(Build.ArtifactStagingDirectory)'
-- stage: publish_master
-  condition: and(succeeded('Build'), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
-  jobs:
-  - deployment: DeployDotNetDevOps
-    pool:
-      vmImage: 'windows-2019'
-    variables:
-      buildConfiguration: 'Release'
-    environment: 'DotNETDevOps'
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-            - task: AzureRmWebAppDeployment@4
-              inputs:
-                azureSubscription: 'Microsoft Partner Network (0fd7128b-5305-49da-a400-b7a37feb271c)'
-                appType: 'functionApp'
-                WebAppName: 'dotnetdevops-letsencrypt'
-                package: '$(Pipeline.Workspace)/**/DotNetDevOps.LetsEncrypt.zip'
-                enableCustomDeployment: true
-                DeploymentType: 'runFromZip'
-- stage: publish_dev
+- stage: PublishDev
   condition: and(succeeded('Build'), eq(variables['Build.SourceBranch'], 'refs/heads/dev'))
+  dependsOn : 'Build'
   jobs:
   - deployment: DeployDotNetDevOps
     pool:
@@ -114,4 +94,25 @@ stages:
                 DeploymentType: 'runFromZip'
                 DeployToSlotFlag: true
                 SlotName: 'dev-ci'
- 
+- stage: PublishMaster
+  dependsOn : 'Build'
+  condition: and(succeeded('Build'), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+  jobs:
+  - deployment: DeployDotNetDevOps
+    pool:
+      vmImage: 'windows-2019'
+    variables:
+      buildConfiguration: 'Release'
+    environment: 'DotNETDevOps'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - task: AzureRmWebAppDeployment@4
+              inputs:
+                azureSubscription: 'Microsoft Partner Network (0fd7128b-5305-49da-a400-b7a37feb271c)'
+                appType: 'functionApp'
+                WebAppName: 'dotnetdevops-letsencrypt'
+                package: '$(Pipeline.Workspace)/**/DotNetDevOps.LetsEncrypt.zip'
+                enableCustomDeployment: true
+                DeploymentType: 'runFromZip'
