@@ -74,7 +74,11 @@ namespace DotNetDevOps.LetsEncrypt
             await smtpClient.SendMailAsync(mailMsg);
         }
     }
-    
+    public class FinishRequestInput
+    {
+        public Target Target { get; set; }
+        public FinalizeOutput Pfx { get; set; }
+    }
     public class CertificateFunctions
     {
         private readonly EmailService emailService;
@@ -83,6 +87,35 @@ namespace DotNetDevOps.LetsEncrypt
         {
             this.emailService = emailService;
         }
+
+
+        [FunctionName(nameof(FinishRequest))]
+        public async Task FinishRequest([ActivityTrigger] IDurableActivityContext ctx)
+        {
+            var input = ctx.GetInput<FinishRequestInput>();
+            var target = input.Target;
+            var pfx = input.Pfx;
+
+            if (target.Properties is FileSystemProperties filesystem)
+            {
+                File.WriteAllBytes(filesystem.Path, pfx.Pfx);
+            }
+            if (target.Properties is AzureBlobProperties azureBlob)
+            {
+                await new CloudBlockBlob(new Uri(azureBlob.TargetBlob)).UploadFromByteArrayAsync(pfx.Pfx, 0, pfx.Pfx.Length);
+            }
+
+            if (target.Properties is EmailTargetProperties email)
+            {
+                // Create  the file attachment for this e-mail message.
+                Attachment data = new Attachment(new MemoryStream(pfx.Pfx), pfx.Name + ".pfx", "application/x-pkcs12");
+                // Add time stamp information for the file.
+
+
+                await emailService.SendEmailAsync("noreply@dotnetdevops.org", "DotNetDevOps Notifications", email.Email, "Certeficate generated:", data);
+            }
+        }
+
         [FunctionName(nameof(AddCertificateOrchestrator))]
         public async Task AddCertificateOrchestrator(
         [OrchestrationTrigger] IDurableOrchestrationContext ctx,
@@ -112,7 +145,7 @@ namespace DotNetDevOps.LetsEncrypt
                             SubscriptionId = azurewebapp.SubscriptionId,
                             Domains = input.Domains
                         });
-
+                   
                     ctx.SetCustomStatus(new { status = "SiteLoaded" });
                 }
             }
@@ -134,25 +167,7 @@ namespace DotNetDevOps.LetsEncrypt
 
             ctx.SetCustomStatus(new { status = "OrderFinalized" });
 
-            if (input.Target.Properties is FileSystemProperties filesystem)
-            {
-                File.WriteAllBytes(filesystem.Path, pfx.Pfx);
-            }
-            if (input.Target.Properties is AzureBlobProperties azureBlob)
-            {
-                await new CloudBlockBlob(new Uri(azureBlob.TargetBlob)).UploadFromByteArrayAsync(pfx.Pfx,0,pfx.Pfx.Length);
-            }
-
-            if (input.Target.Properties is EmailTargetProperties email)
-            {
-                // Create  the file attachment for this e-mail message.
-                Attachment data = new Attachment(new MemoryStream(pfx.Pfx), input.Domains.First()+".pfx", "application/x-pkcs12");
-                // Add time stamp information for the file.
-                
-
-                await emailService.SendEmailAsync("noreply@dotnetdevops.org", "DotNetDevOps Notifications", email.Email,"Certeficate generated:", data);
-            }
-
+            await ctx.CallActivityAsync(nameof(FinishRequest), new FinishRequestInput { Target = input.Target, Pfx = pfx });
 
             {
                 if (input.Target.Properties is AzureWebAppProperties azurewebapp)

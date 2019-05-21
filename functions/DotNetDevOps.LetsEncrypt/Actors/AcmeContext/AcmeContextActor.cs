@@ -196,7 +196,7 @@ namespace DotNetDevOps.LetsEncrypt
                 var certChain = await orderCtx.Download();
                 var pfx = certChain.ToPfx(certKey).Build("CN="+input.Domains.First(), "");
                 var cert = new X509Certificate2(pfx);
-                return new FinalizeOutput {  Pfx =pfx, Thumbprint = cert.Thumbprint};
+                return new FinalizeOutput {  Pfx =pfx, Thumbprint = cert.Thumbprint, Name = "CN=" + input.Domains.First() };
 
             }
 
