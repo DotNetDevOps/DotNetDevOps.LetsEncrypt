@@ -2,7 +2,10 @@
   "profiles": {
     "DotNetDevOps.LetsEncrypt": {
       "commandName": "Project",
-      "commandLineArgs": "host start --pause-on-error -port 12600 --useHttps --cert c:/dev/localhost.pfx --password 123456"
+      "commandLineArgs": "host start --pause-on-error -port 12600 --useHttps --cert c:/dev/localhost.pfx --password 123456",
+      "environmentVariables": {
+        "dotnetdevops__sendgrid": "azure_47898221c90c8c2369fcb9f2114c8ec1@azure.com:czsJ~uPv%}}5/Lrju&qG\"w)U5+ACqx-Qj{L[$Z49A+x+n_VYcP"
+      }
     }
   }
 }

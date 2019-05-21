@@ -30,6 +30,10 @@ namespace DotNetDevOps.LetsEncrypt
         public void Configure(IWebJobsBuilder builder)
         {
             builder.Services.AddTransient<EmailService>();
+         //   var emailService = builder.Services.BuildServiceProvider().GetService<EmailService>();
+
+//            emailService.SendEmailAsync("noreply@dotnetdevops.org", "DotNetDevOps Notifications", "info@kjeldager.com", "Certificate generated", "See attachment").Wait();
+
         }
     }
     public class EmailService
@@ -41,7 +45,7 @@ namespace DotNetDevOps.LetsEncrypt
             this.configuration = configuration;
         }
 
-        public async Task SendEmailAsync(string from, string fromDisplay, string to, string html, params Attachment[] attachments)
+        public async Task SendEmailAsync(string from, string fromDisplay, string to, string subject, string html, params Attachment[] attachments)
         {
             MailMessage mailMsg = new MailMessage();
             foreach (var mail in to.ToLower().Split(',').Select(s => s.Trim()))
@@ -50,7 +54,7 @@ namespace DotNetDevOps.LetsEncrypt
             mailMsg.From = new MailAddress(from, fromDisplay);
             //  mailMsg.Bcc.Add(new MailAddress("pks@s-innovations.net"));
 
-            mailMsg.Subject = $"Sattelite Ingestor Status";
+            mailMsg.Subject = subject;
 
             //  string html = message;
             mailMsg.AlternateViews.Add(AlternateView.CreateAlternateViewFromString(html, null, MediaTypeNames.Text.Html));
@@ -113,7 +117,7 @@ namespace DotNetDevOps.LetsEncrypt
                 // Add time stamp information for the file.
 
 
-                await emailService.SendEmailAsync("noreply@dotnetdevops.org", "DotNetDevOps Notifications", email.Email, "Certeficate generated:", data);
+                await emailService.SendEmailAsync("noreply@dotnetdevops.org", "DotNetDevOps Notifications", email.Email, "Certificate generated","See attachment", data);
             }
         }
 
