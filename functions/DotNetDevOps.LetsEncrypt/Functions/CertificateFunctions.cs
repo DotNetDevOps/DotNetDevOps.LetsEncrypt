@@ -10,11 +10,12 @@ using Microsoft.Azure.WebJobs.Hosting;
 using Newtonsoft.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System.IO;
 
 namespace DotNetDevOps.LetsEncrypt
 {
     public static class CertificateFunctions
-    { 
+    {
 
         [FunctionName(nameof(AddCertificateOrchestrator))]
         public static async Task AddCertificateOrchestrator(
@@ -26,24 +27,32 @@ namespace DotNetDevOps.LetsEncrypt
             var input = ctx.GetInput<AddCertificateRequest>();
 
             ctx.SetCustomStatus(new { status = "Pending" });
-             
-            var websiteId = new EntityId("AzureWebsite", string.Join("", input.ResourceGroupName, input.SiteName, input.SlotName, input.SubscriptionId).ToMD5Hash());
+
+
+
+
             var arcmeId = new EntityId("AcmeContext", input.SignerEmail.ToMD5Hash());
 
-            var site = await ctx.CallEntityAsync<SiteInner>(websiteId, nameof(AzureWebsiteActor.Load),
-                new LoadWebsiteInput
-                {
-                    ResourceGroupname = input.ResourceGroupName,
-                    SiteName = input.SiteName,
-                    SlotName = input.SlotName,
-                    SubscriptionId = input.SubscriptionId,
-                    Domains = input.Domains
-                });
 
-            ctx.SetCustomStatus(new { status = "SiteLoaded" });
+            {
+                if (input.Target.Properties is AzureWebAppProperties azurewebapp)
+                {
+                    var site = await ctx.CallEntityAsync<SiteInner>(new EntityId("AzureWebsite", input.Target.PropertiesHash), nameof(AzureWebsiteActor.Load),
+                        new LoadWebsiteInput
+                        {
+                            ResourceGroupname = azurewebapp.ResourceGroupName,
+                            SiteName = azurewebapp.SiteName,
+                            SlotName = azurewebapp.SlotName,
+                            SubscriptionId = azurewebapp.SubscriptionId,
+                            Domains = input.Domains
+                        });
+
+                    ctx.SetCustomStatus(new { status = "SiteLoaded" });
+                }
+            }
 
             await ctx.CallEntityAsync(arcmeId, nameof(AcmeContextActor.Initialize),
-                new AcmeContextInitializeInput { SignerEmail = input.SignerEmail, LetsEncryptEndpoint = input.LetsEncryptEndpoint });
+            new AcmeContextInitializeInput { SignerEmail = input.SignerEmail, LetsEncryptEndpoint = input.LetsEncryptEndpoint });
 
             ctx.SetCustomStatus(new { status = "AcmeInitialized" });
 
@@ -59,11 +68,25 @@ namespace DotNetDevOps.LetsEncrypt
 
             ctx.SetCustomStatus(new { status = "OrderFinalized" });
 
+            if (input?.Target.Properties is FileSystemProperties filesystem)
+            {
+                File.WriteAllBytes(filesystem.Path, pfx.Pfx);
+            }
 
-            await ctx.CallEntityAsync<SiteInner>(websiteId, nameof(AzureWebsiteActor.UpdateCertificate), new UpdateCertificateInput { Pfx = pfx, Domains = input.Domains, UseIpBasedSsl = input.UseIpBasedSsl });
+
+            {
+                if (input.Target.Properties is AzureWebAppProperties azurewebapp)
+                {
+                    await ctx.CallEntityAsync<SiteInner>(new EntityId("AzureWebsite", input.Target.PropertiesHash),
+                        nameof(AzureWebsiteActor.UpdateCertificate), new UpdateCertificateInput { Pfx = pfx, Domains = input.Domains, UseIpBasedSsl = azurewebapp.UseIpBasedSsl });
+
+                }
+            }
 
             ctx.SetCustomStatus(new { status = "CertificateUpdated" });
- 
+
+
+
         }
 
         [FunctionName("CreateCertificateRequest")]
@@ -88,7 +111,7 @@ namespace DotNetDevOps.LetsEncrypt
        ILogger log)
         {
             await starter.SignalEntityAsync(new EntityId("Authorization", token), nameof(AuthorizationActor.AuthorizationCompleted));
-          
+
         }
 
         [FunctionName("AcmeChallenge")]

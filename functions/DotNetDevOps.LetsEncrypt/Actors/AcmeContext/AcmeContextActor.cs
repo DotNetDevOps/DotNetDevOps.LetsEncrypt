@@ -17,7 +17,7 @@ namespace DotNetDevOps.LetsEncrypt
         public string KeyAuthz { get;  set; }
         public string Token { get;  set; }
         public string OrchestratorId { get;  set; }
-        public Uri Location { get;  set; }
+        public Uri AuthorizationLocation { get;  set; }
         public EntityId EntityId { get;  set; }
     }
     public class AuthorizeDnsInput
@@ -53,10 +53,12 @@ namespace DotNetDevOps.LetsEncrypt
         public async Task AuthorizeHttp(AuthorizeHttpInput input, ILogger log)
         {
             this.State.KeyAuthz = input.KeyAuthz;
+            this.State.EntityId = input.EntityId;
+            this.State.AuthorizationLocation = input.AuthorizationLocation;
 
             this.SaveState();
 
-            await starter.SignalEntityAsync(input.EntityId, nameof(AcmeContextActor.ValidateAuthorization), new ValidateAuthorizationInput { AuthorizationLocation = input.Location, UseDns = false, OrchestratorId = input.OrchestratorId });
+            await starter.SignalEntityAsync(input.EntityId, nameof(AcmeContextActor.ValidateAuthorization), new ValidateAuthorizationInput { AuthorizationLocation = input.AuthorizationLocation, UseDns = false, OrchestratorId = input.OrchestratorId });
 
         }
 
@@ -147,8 +149,10 @@ namespace DotNetDevOps.LetsEncrypt
         [Operation(nameof(Initialize))]
         public async Task Initialize(AcmeContextInitializeInput input)
         { 
-            if (State.SignerEmail != input.SignerEmail)
+            if (State.SignerEmail != input.SignerEmail ||State.LetsEncryptEndpoint != input.LetsEncryptEndpoint)
             {
+                State = new AcmeContextState();
+
                 var context = new AcmeContext(input.LetsEncryptEndpoint);
 
                 var tos = context.TermsOfService();

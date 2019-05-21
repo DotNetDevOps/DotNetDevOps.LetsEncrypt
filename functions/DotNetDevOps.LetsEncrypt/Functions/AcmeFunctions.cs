@@ -94,7 +94,7 @@ namespace DotNetDevOps.LetsEncrypt
                         KeyAuthz = challengeContext.KeyAuthz,
                        // Token = challengeContext.Token,
                         OrchestratorId = ctx.InstanceId,
-                        Location = challengeContext.Location,
+                        AuthorizationLocation = authorizationCtx.Location,
                         EntityId = input.EntityId,
                     });
                     list.Add(challengeContext.Token);
