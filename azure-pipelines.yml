@@ -111,7 +111,7 @@ stages:
                 WebAppName: 'dotnetdevops-letsencrypt'
                 package: '$(Pipeline.Workspace)/**/DotNetDevOps.LetsEncrypt.zip'
                 enableCustomDeployment: true
-                DeploymentType: 'runFromZip',
+                DeploymentType: 'runFromZip'
                 DeployToSlotFlag: true
                 SlotName: 'dev-ci'
  
