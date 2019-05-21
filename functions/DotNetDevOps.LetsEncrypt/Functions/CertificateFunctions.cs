@@ -90,7 +90,7 @@ namespace DotNetDevOps.LetsEncrypt
 
 
         [FunctionName(nameof(FinishRequest))]
-        public async Task FinishRequest([ActivityTrigger] IDurableActivityContext ctx)
+        public async Task FinishRequest([ActivityTrigger] IDurableActivityContext ctx, ILogger logger)
         {
             var input = ctx.GetInput<FinishRequestInput>();
             var target = input.Target;
@@ -107,6 +107,7 @@ namespace DotNetDevOps.LetsEncrypt
 
             if (target.Properties is EmailTargetProperties email)
             {
+                logger.LogWarning("Sending email with certificate to {email}",email.Email);
                 // Create  the file attachment for this e-mail message.
                 Attachment data = new Attachment(new MemoryStream(pfx.Pfx), pfx.Name + ".pfx", "application/x-pkcs12");
                 // Add time stamp information for the file.
