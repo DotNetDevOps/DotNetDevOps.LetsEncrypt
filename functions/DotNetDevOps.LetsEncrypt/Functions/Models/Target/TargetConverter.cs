@@ -15,7 +15,7 @@ namespace DotNetDevOps.LetsEncrypt
         public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
         {
             var jobj = JObject.ReadFrom(reader);
-            var type = jobj.SelectToken("$.type").ToString();
+            var type = jobj.SelectToken("$.type")?.ToString();
             var props = jobj.SelectToken("$.properties");
             switch (type)
             {

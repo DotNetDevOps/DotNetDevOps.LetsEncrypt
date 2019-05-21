@@ -20,7 +20,7 @@ namespace DotNetDevOps.LetsEncrypt
         public Uri LetsEncryptEndpoint { get; set; } = WellKnownServers.LetsEncryptV2;
         public CsrInfo CsrInfo { get; set; }
 
-        [JsonConverter(typeof(TargetConverter))]
+       
         public Target Target { get; set; }
     }
 }

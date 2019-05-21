@@ -1,5 +1,9 @@
-﻿namespace DotNetDevOps.LetsEncrypt
+﻿using Newtonsoft.Json;
+
+namespace DotNetDevOps.LetsEncrypt
 {
+
+    [JsonConverter(typeof(TargetConverter))]
     public class Target
     {
         public string Type { get; set; }
