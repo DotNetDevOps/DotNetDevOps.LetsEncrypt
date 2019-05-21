@@ -11,6 +11,7 @@ using Newtonsoft.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.IO;
+using Microsoft.WindowsAzure.Storage.Blob;
 
 namespace DotNetDevOps.LetsEncrypt
 {
@@ -68,9 +69,13 @@ namespace DotNetDevOps.LetsEncrypt
 
             ctx.SetCustomStatus(new { status = "OrderFinalized" });
 
-            if (input?.Target.Properties is FileSystemProperties filesystem)
+            if (input.Target.Properties is FileSystemProperties filesystem)
             {
                 File.WriteAllBytes(filesystem.Path, pfx.Pfx);
+            }
+            if (input.Target.Properties is AzureBlobProperties azureBlob)
+            {
+                await new CloudBlockBlob(new Uri(azureBlob.TargetBlob)).UploadFromByteArrayAsync(pfx.Pfx,0,pfx.Pfx.Length);
             }
 
 

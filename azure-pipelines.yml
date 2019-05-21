@@ -37,12 +37,21 @@ stages:
         nugetConfigPath: nuget.config # you should always have a NuGet.config file!
         #verbosityRestore: 'detailed' # Options: quiet, minimal, normal, detailed, diagnostic
     
-     - task: DotNetCoreCLI@2
+    - task: JsonPathManipulationTask@1
+      condition: and(succeeded('Build'), eq(variables['Build.SourceBranch'], 'refs/heads/dev'))
+      inputs:
+        JsonFile: 'functions/DotNetDevOps.LetsEncrypt/host.json'
+        JsonPathFilter: '$.extensions.durableTask.hubName'
+        ReplacementValue: 'DotNetDevOpsLetsEncryptDev'
+
+    - task: DotNetCoreCLI@2
       displayName: Build
       inputs:
         command: build
         projects: '**/*.csproj'
         configuration: '$(buildConfiguration)'
+
+
     - task: DotNetCoreCLI@2
       displayName: Publish
       inputs:
@@ -61,7 +70,8 @@ stages:
       inputs:
         artifactName: 'drop'
         targetPath: '$(Build.ArtifactStagingDirectory)'
-- stage: Publish
+- stage: publish_master
+  condition: and(succeeded('Build'), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
   jobs:
   - deployment: DeployDotNetDevOps
     pool:
@@ -81,4 +91,27 @@ stages:
                 package: '$(Pipeline.Workspace)/**/DotNetDevOps.LetsEncrypt.zip'
                 enableCustomDeployment: true
                 DeploymentType: 'runFromZip'
+- stage: publish_dev
+  condition: and(succeeded('Build'), eq(variables['Build.SourceBranch'], 'refs/heads/dev'))
+  jobs:
+  - deployment: DeployDotNetDevOps
+    pool:
+      vmImage: 'windows-2019'
+    variables:
+      buildConfiguration: 'Release'
+    environment: 'DotNETDevOps'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - task: AzureRmWebAppDeployment@4
+              inputs:
+                azureSubscription: 'Microsoft Partner Network (0fd7128b-5305-49da-a400-b7a37feb271c)'
+                appType: 'functionApp'
+                WebAppName: 'dotnetdevops-letsencrypt'
+                package: '$(Pipeline.Workspace)/**/DotNetDevOps.LetsEncrypt.zip'
+                enableCustomDeployment: true
+                DeploymentType: 'runFromZip',
+                DeployToSlotFlag: true
+                SlotName: 'dev-ci'
  
