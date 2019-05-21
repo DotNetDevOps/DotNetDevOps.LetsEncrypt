@@ -70,6 +70,7 @@ stages:
       inputs:
         artifactName: 'drop'
         targetPath: '$(Build.ArtifactStagingDirectory)'
+
 - stage: PublishDev
   condition: and(succeeded('Build'), eq(variables['Build.SourceBranch'], 'refs/heads/dev'))
   dependsOn : 'Build'
@@ -84,16 +85,17 @@ stages:
       runOnce:
         deploy:
           steps:
-            - task: AzureRmWebAppDeployment@4
+            - task: AzureFunctionApp@1
               inputs:
                 azureSubscription: 'Microsoft Partner Network (0fd7128b-5305-49da-a400-b7a37feb271c)'
                 appType: 'functionApp'
-                WebAppName: 'dotnetdevops-letsencrypt'
+                appName: 'dotnetdevops-letsencrypt'
+                deployToSlotOrASE: true
+                resourceGroupName: 'dotnetdevops'
+                slotName: 'dev-ci'
                 package: '$(Pipeline.Workspace)/**/DotNetDevOps.LetsEncrypt.zip'
-                enableCustomDeployment: true
-                DeploymentType: 'runFromZip'
-                DeployToSlotFlag: true
-                SlotName: 'dev-ci'
+                deploymentMethod: 'runFromPackage'
+
 - stage: PublishMaster
   dependsOn : 'Build'
   condition: and(succeeded('Build'), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
@@ -108,11 +110,10 @@ stages:
       runOnce:
         deploy:
           steps:
-            - task: AzureRmWebAppDeployment@4
+            - task: AzureFunctionApp@1
               inputs:
                 azureSubscription: 'Microsoft Partner Network (0fd7128b-5305-49da-a400-b7a37feb271c)'
                 appType: 'functionApp'
-                WebAppName: 'dotnetdevops-letsencrypt'
+                appName: 'dotnetdevops-letsencrypt'
                 package: '$(Pipeline.Workspace)/**/DotNetDevOps.LetsEncrypt.zip'
-                enableCustomDeployment: true
-                DeploymentType: 'runFromZip'
+                deploymentMethod: 'runFromPackage'
