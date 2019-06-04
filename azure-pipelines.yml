@@ -71,6 +71,31 @@ stages:
         artifactName: 'drop'
         targetPath: '$(Build.ArtifactStagingDirectory)'
 
+
+- stage: 'DistributeFunctions'
+  dependsOn: 'Build'
+  jobs:
+  - job: build
+
+    pool:
+      vmImage: 'windows-2019'
+
+    steps:
+    - task: DownloadPipelineArtifact@1
+      inputs:
+        buildType: 'current'
+        artifactName: 'drop'
+        targetPath: '$(System.ArtifactsDirectory)'
+    
+    - task: AzureFileCopy@3
+      inputs:
+        SourcePath: '$(Build.ArtifactStagingDirectory)/DotNetDevOps.LetsEncrypt.zip'
+        azureSubscription: 'Microsoft Partner Network(0fd7128b-5305-49da-a400-b7a37feb271c)'
+        Destination: 'AzureBlob'
+        storage: 'dotnetdevops'
+        ContainerName: 'functions'
+        BlobPrefix: 'DotNetDevOps.LetsEncrypt/$(Build.BuildNumber)/'
+
 - stage: PublishDev
   condition: and(succeeded('Build'), eq(variables['Build.SourceBranch'], 'refs/heads/dev'))
   dependsOn : 'Build'

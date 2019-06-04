@@ -6,7 +6,7 @@
   <ItemGroup>
     <PackageReference Include="Certes" Version="2.3.3" />
     <PackageReference Include="Microsoft.NET.Sdk.Functions" Version="1.0.28" />
-    <PackageReference Include="Microsoft.Azure.Management.AppService.Fluent" Version="1.22.0" />
+    <PackageReference Include="Microsoft.Azure.Management.AppService.Fluent" Version="1.22.2" />
     <PackageReference Include="Microsoft.Azure.Services.AppAuthentication" Version="1.0.3" />
     <PackageReference Include="Microsoft.Azure.WebJobs.Extensions.DurableTask" Version="2.0.0-alpha" />
   </ItemGroup>
