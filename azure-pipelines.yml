@@ -90,7 +90,7 @@ stages:
     - task: AzureFileCopy@3
       inputs:
         SourcePath: '$(Build.ArtifactStagingDirectory)/DotNetDevOps.LetsEncrypt.zip'
-        azureSubscription: 'Microsoft Partner Network(0fd7128b-5305-49da-a400-b7a37feb271c)'
+        azureSubscription: 'Microsoft Partner Network (0fd7128b-5305-49da-a400-b7a37feb271c)'
         Destination: 'AzureBlob'
         storage: 'dotnetdevops'
         ContainerName: 'functions'
