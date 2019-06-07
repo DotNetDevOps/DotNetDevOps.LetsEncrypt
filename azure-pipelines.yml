@@ -81,6 +81,10 @@ stages:
       vmImage: 'windows-2019'
 
     steps:
+    - task: VersionReaderTask@1
+      inputs:
+        searchPattern: 'functions/DotNetDevOps.LetsEncrypt/*.csproj'
+
     - task: DownloadPipelineArtifact@1
       inputs:
         buildType: 'current'
@@ -94,7 +98,7 @@ stages:
         Destination: 'AzureBlob'
         storage: 'dotnetdevops'
         ContainerName: 'functions'
-        BlobPrefix: 'DotNetDevOps.LetsEncrypt/$(Build.BuildNumber)/'
+        BlobPrefix: 'DotNetDevOps.LetsEncrypt/$(version)-ci-$(Build.BuildNumber)/'
 
 - stage: PublishDev
   condition: and(succeeded('Build'), eq(variables['Build.SourceBranch'], 'refs/heads/dev'))
