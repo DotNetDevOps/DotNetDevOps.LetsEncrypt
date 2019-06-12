@@ -22,5 +22,7 @@ namespace DotNetDevOps.LetsEncrypt
 
        
         public Target Target { get; set; }
+
+        public bool UseDns01Authorization { get; set; }
     }
 }

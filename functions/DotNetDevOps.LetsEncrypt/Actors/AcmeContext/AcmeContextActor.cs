@@ -36,6 +36,15 @@ namespace DotNetDevOps.LetsEncrypt
         public string OrchestratorId { get; set; }
         public EntityId EntityId { get;  set; }
         public Uri AuthorizationLocation { get; set; }
+        public List<DnsAuthorizationRequest> DnsAuthorizationRequests { get; set; }
+    }
+
+    public class DnsAuthorizationRequest
+    {
+        public string Name { get;  set; }
+        public string Value { get;  set; }
+        public string RecordType { get;  set; }
+        public string Callback { get;  set; }
     }
 
     [ActorService(Name = "Authorization")]
@@ -69,19 +78,27 @@ namespace DotNetDevOps.LetsEncrypt
             this.State.EntityId = input.EntityId;
             this.State.AuthorizationLocation = input.AuthorizationLocation;
 
+            if(this.State.DnsAuthorizationRequests == null)
+            {
+                this.State.DnsAuthorizationRequests = new List<DnsAuthorizationRequest>();
+            }
+
+            var givethisToExternalService = new DnsAuthorizationRequest
+            {
+                Name = input.Name,
+                Value = input.DnsTxt,
+                RecordType = "TXT",
+                Callback = $"https://letsencrypt-provider/providers/DotNetDevOps.Letsencrypt/challenges/{Id.EntityKey}"
+            };
+            this.State.DnsAuthorizationRequests.Add(givethisToExternalService);
+
             log.LogWarning("Please update Domain:\n\n domain={domain}\n dnsTxt={dnsTxt}\n callback={callback}", input.Name, input.DnsTxt, $"http://localhost:7071/providers/DotNetDevOps.Letsencrypt/challenges/{Id.EntityKey}");
             //location={location}\n updateUrl=
             this.SaveState();
             //TODO call external service/callback 
 
-            var givethisToExternalService = new
-            {
-                name=input.Name,
-                value=input.DnsTxt,
-                recordType = "TXT",
-                callback = $"https://management.dotnetdevops.org/providers/DotNetDevOps.Letsencrypt/challenges/{Id.EntityKey}"
-            };
-            
+         
+
         }
 
         [Operation(nameof(AuthorizationCompleted))]

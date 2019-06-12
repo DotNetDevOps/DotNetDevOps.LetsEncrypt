@@ -161,7 +161,7 @@ namespace DotNetDevOps.LetsEncrypt
             ctx.SetCustomStatus(new { status = "AcmeInitialized" });
 
             await ctx.CallEntityAsync(arcmeId, nameof(AcmeContextActor.CreateOrder),
-                new OrderInput { Domains = input.Domains, MonitorInstanceId = ctx.InstanceId });
+                new OrderInput { Domains = input.Domains, MonitorInstanceId = ctx.InstanceId, UseDns01Authorization = input.UseDns01Authorization });
 
             await ctx.WaitForExternalEvent("Completed");
 
