@@ -37,12 +37,6 @@ stages:
         nugetConfigPath: nuget.config # you should always have a NuGet.config file!
         #verbosityRestore: 'detailed' # Options: quiet, minimal, normal, detailed, diagnostic
     
-    - task: JsonPathManipulationTask@1
-      condition: eq(variables['Build.SourceBranch'], 'refs/heads/dev')
-      inputs:
-        JsonFile: 'functions/DotNetDevOps.LetsEncrypt/host.json'
-        JsonPathFilter: '$.extensions.durableTask.hubName'
-        ReplacementValue: 'DotNetDevOpsLetsEncryptDev'
 
     - task: DotNetCoreCLI@2
       displayName: Build
