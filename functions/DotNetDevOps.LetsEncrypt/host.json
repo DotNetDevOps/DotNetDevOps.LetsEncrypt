@@ -13,7 +13,7 @@
   },
   "extensions": {
     "durableTask": {
-      "hubName": "DotNetDevOpsLetsEncrypt"
+      "hubName": "%DotNetDevOpsLetsEncryptHubName%"
     },
     "http": {
       "routePrefix": ""
