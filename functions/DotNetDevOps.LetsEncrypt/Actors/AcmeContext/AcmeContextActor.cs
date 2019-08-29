@@ -28,6 +28,7 @@ namespace DotNetDevOps.LetsEncrypt
         public Uri AuthorizationLocation { get;  set; }
        // public string Token { get;  set; }
         public EntityId EntityId { get; set; }
+        public string SignerEmail { get;  set; }
     }
 
     public class AuthorizationActorState{
@@ -51,10 +52,12 @@ namespace DotNetDevOps.LetsEncrypt
     public class AuthorizationActor : Actor<AuthorizationActorState>
     {
         private readonly IDurableOrchestrationClient starter;
+        private readonly EmailService emailService;
 
-        public AuthorizationActor(IDurableOrchestrationClient starter)
+        public AuthorizationActor(IDurableOrchestrationClient starter, EmailService emailService)
         {
             this.starter = starter;
+            this.emailService = emailService ?? throw new ArgumentNullException(nameof(emailService));
         }
 
 
@@ -72,7 +75,7 @@ namespace DotNetDevOps.LetsEncrypt
         }
 
         [Operation(nameof(AuthorizeDns), Input = typeof(AuthorizeDnsInput))]
-        public void AuthorizeDns(AuthorizeDnsInput input, ILogger log)
+        public async Task AuthorizeDns(AuthorizeDnsInput input, ILogger log)
         {
             this.State.OrchestratorId = input.OrchestratorId;
             this.State.EntityId = input.EntityId;
@@ -88,7 +91,7 @@ namespace DotNetDevOps.LetsEncrypt
                 Name = input.Name,
                 Value = input.DnsTxt,
                 RecordType = "TXT",
-                Callback = $"https://letsencrypt-provider/providers/DotNetDevOps.Letsencrypt/challenges/{Id.EntityKey}"
+                Callback = $"https://management.dotnetdevops.org/providers/DotNetDevOps.Letsencrypt/challenges/{Id.EntityKey}"
             };
             this.State.DnsAuthorizationRequests.Add(givethisToExternalService);
 
@@ -97,7 +100,8 @@ namespace DotNetDevOps.LetsEncrypt
             this.SaveState();
             //TODO call external service/callback 
 
-         
+            await emailService.SendEmailAsync("noreply@dotnetdevops.org", "DotNetDevOps Notifications", input.SignerEmail, "Please update DNS Records", $"domain={givethisToExternalService.Name}\n dnsTxt={givethisToExternalService.Value}\n callback={givethisToExternalService.Callback}");
+
 
         }
 
@@ -229,13 +233,13 @@ namespace DotNetDevOps.LetsEncrypt
 
             using (logger.BeginScope(new Dictionary<string, string> { ["Domains"]= string.Join(",",input.Domains) }))
             {
-
+               
                 var context = new AcmeContext(State.LetsEncryptEndpoint,
                     KeyFactory.FromPem(State.Pem));
 
                 {
                     var accountCtx = await context.Account();
-                    var account = await accountCtx.Resource();
+                    var account = await accountCtx.Resource();  
                     logger.LogInformation("Account context loaded for {contact} - {status}", string.Join(", ", account.Contact), account.Status);
 
                     logger.BeginScope(new Dictionary<string, string> { ["Contact"] = string.Join(", ", account.Contact) });
@@ -294,6 +298,7 @@ namespace DotNetDevOps.LetsEncrypt
                                     EntityId = Id,
                                     RequestMonitorInstanceId = input.MonitorInstanceId,
                                     UseDns01Authorization = input.UseDns01Authorization,
+                                    SignerEmail = input.SignerEmail
                                 });
 
                             State.Orders[orderId] = orderCtx.Location.AbsoluteUri;

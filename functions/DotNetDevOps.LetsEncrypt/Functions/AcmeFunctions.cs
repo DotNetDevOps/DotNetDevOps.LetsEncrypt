@@ -16,6 +16,7 @@ namespace DotNetDevOps.LetsEncrypt
         public string OrderLocation { get; set; }
         public EntityId EntityId { get; set; }
         public bool UseDns01Authorization { get; set; }
+        public string SignerEmail { get;  set; }
     }
     public class WaitForNotPendingInput
     {
@@ -65,7 +66,7 @@ namespace DotNetDevOps.LetsEncrypt
             var orderCtx = context.Order(new Uri(input.OrderLocation));
 
             var order = await orderCtx.Resource();
-
+            
 
             if (order.Status == Certes.Acme.Resource.OrderStatus.Invalid || order.Status == Certes.Acme.Resource.OrderStatus.Valid)
             {
@@ -113,7 +114,8 @@ namespace DotNetDevOps.LetsEncrypt
                         DnsTxt = context.AccountKey.DnsTxt(challengeContext.Token),
                         AuthorizationLocation = authorizationCtx.Location,
                         OrchestratorId = ctx.InstanceId,
-                        EntityId = input.EntityId
+                        EntityId = input.EntityId,
+                        SignerEmail = input.SignerEmail
                     });
                     list.Add(challengeContext.Token);
                 }
@@ -143,7 +145,8 @@ namespace DotNetDevOps.LetsEncrypt
             {
                 OrderLocation = input.OrderLocation,
                 EntityId = input.EntityId,
-                UseDns01Authorization = input.UseDns01Authorization
+                UseDns01Authorization = input.UseDns01Authorization,
+                SignerEmail = input.SignerEmail
             });
 
 
