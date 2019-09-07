@@ -30,6 +30,8 @@ stages:
     # .NET Core
     - task: UseDotNet@2
       displayName: 'Use .NET Core sdk'
+      inputs:
+        useGlobalJson: true
 
     # Restore NuGet packages.
     - task: DotNetCoreCLI@2
