@@ -28,6 +28,9 @@ stages:
 
     steps:
     # .NET Core
+    - task: UseDotNet@2
+      displayName: 'Use .NET Core sdk'
+
     # Restore NuGet packages.
     - task: DotNetCoreCLI@2
       inputs:
