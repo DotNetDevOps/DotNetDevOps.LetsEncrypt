@@ -18,6 +18,19 @@ namespace DotNetDevOps.LetsEncrypt
     {
         private static async Task<WebSiteManagementClient> CreateWebSiteManagementClientAsync(string subscriptionId)
         {
+            try
+            {
+
+                var type = typeof(AzureServiceTokenProvider).Assembly.GetType("Microsoft.Azure.Services.AppAuthentication.AppAuthResultCache");
+                var method = type.GetMethod("Clear", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+                method.Invoke(null, new object[] { });
+
+            }
+            catch(Exception ex)
+            {
+
+            }
+
             var tokenProvider = new AzureServiceTokenProvider();
 
             var accessToken = await tokenProvider.GetAccessTokenAsync("https://management.azure.com/");
